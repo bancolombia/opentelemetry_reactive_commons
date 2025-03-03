@@ -16,8 +16,6 @@ defmodule OpentelemetryReactiveCommons do
   """
 
   alias OpenTelemetry.SemanticConventions.Trace
-  # alias OpentelemetryReactiveCommons.Command
-  # alias OpentelemetryReactiveCommons.ConnectionTracker
   require Logger
   require Trace
   require OpenTelemetry.Tracer
