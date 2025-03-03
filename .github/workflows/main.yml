@@ -1,0 +1,94 @@
+name: Opentelemetry Reactive Commons CI/RM
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+      - fix/*
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    name: Build and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Generate a token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID_ADMIN_GITHUB }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY_ADMIN_GITHUB }}
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+      # Semantic Release
+      - name: Verify Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up NodeJS
+        if: github.ref == 'refs/heads/main'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Set up Semantic Release
+        if: github.ref == 'refs/heads/main'
+        run: npm -g install @semantic-release/git semantic-release@23.0.0
+      - name: Semantic Release
+        if: github.ref == 'refs/heads/main'
+        run: npx semantic-release@23.0.0
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+      # Elixir
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          version-type: strict
+          version-file: ".tool-versions"
+      - name: Restore dependencies cache
+        uses: actions/cache@v3
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+      - name: Install dependencies
+        run: mix deps.get && mix deps.compile
+        env:
+          MIX_ENV: test
+          SKIP_GIT_HOOKS: 'true'
+      - name: Static code analysis
+        run: mix format --check-formatted && mix sobelow && mix credo --strict && mix dialyzer
+      - name: Tests & Coverage (main)
+        if: github.ref == 'refs/heads/main'
+        run: mix coveralls.github
+        env:
+          CI_ENV: 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tests & Coverage (pull requests)
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        run: mix coveralls.lcov
+        env:
+          CI_ENV: 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup PR Report tool
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: hrishikesh-kadam/setup-lcov@v1
+      - name: Validate code coverage
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: zgosalvez/github-actions-report-lcov@v4
+        with:
+          coverage-files: cover/lcov.info
+          minimum-coverage: 90
+          artifact-name: code-coverage-report
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          update-comment: true
