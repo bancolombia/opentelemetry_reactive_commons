@@ -8,19 +8,6 @@ import Config
 # if you want to provide default values for your application for
 # third-party users, it should be done in your "mix.exs" file.
 
-# You can configure your application as:
-#
-#     config :opentelemetry_redix, key: :value
-#
-# and access this configuration in your application as:
-#
-#     Application.get_env(:opentelemetry_redix, :key)
-#
-# You can also configure a third-party app:
-#
-#     config :logger, level: :info
-#
-
 # It is also possible to import configuration files, relative to this
 # directory. For example, you can emulate configuration per environment
 # by uncommenting the line below and defining dev.exs, test.exs and such.
